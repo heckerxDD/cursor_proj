@@ -33,14 +33,17 @@ function getTaskColor(index) {
 }
 
 const PRIORITY_OPTIONS = ['Low', 'Normal', 'High', 'Critical'];
+const CATEGORY_OPTIONS = ['IPO timing', 'signoff review'];
 
 function App() {
   const [taskName, setTaskName] = useState('');
   const [priority, setPriority] = useState('Normal');
+  const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    document.title = 'edm test tracker';
     fetchTasks();
   }, []);
 
@@ -57,12 +60,13 @@ function App() {
     fetch('http://localhost:3001/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: taskName, priority }),
+      body: JSON.stringify({ name: taskName, priority, category }),
     })
       .then(res => res.json())
       .then(() => {
         setTaskName('');
         setPriority('Normal');
+        setCategory(CATEGORY_OPTIONS[0]);
         setTimeout(fetchTasks, 100);
       })
       .finally(() => setLoading(false));
@@ -108,6 +112,11 @@ function App() {
           placeholder="Enter task name"
           disabled={loading}
         />
+        <select value={category} onChange={e => setCategory(e.target.value)} disabled={loading}>
+          {CATEGORY_OPTIONS.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
         <select value={priority} onChange={e => setPriority(e.target.value)} disabled={loading}>
           {PRIORITY_OPTIONS.map(opt => (
             <option key={opt} value={opt}>{opt}</option>
@@ -140,7 +149,10 @@ function App() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <span style={{ fontWeight: 'bold', fontSize: 22, letterSpacing: 1 }}>{task.name}</span>
-              <span style={{ fontSize: 16, fontWeight: 500, background: '#fff', borderRadius: 8, padding: '4px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <span style={{ fontSize: 16, fontWeight: 500, background: '#fff', borderRadius: 8, padding: '4px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginLeft: 8 }}>
+                Category: {task.category || '-'}
+              </span>
+              <span style={{ fontSize: 16, fontWeight: 500, background: '#fff', borderRadius: 8, padding: '4px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginLeft: 8 }}>
                 Priority: {task.priority || 'Normal'}
               </span>
             </div>

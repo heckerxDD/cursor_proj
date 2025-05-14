@@ -22,10 +22,10 @@ function generateSubtasks(taskName) {
 
 // Create a new task and auto-generate subtasks
 app.post('/api/tasks', (req, res) => {
-  const { name, priority } = req.body;
+  const { name, priority, category } = req.body;
   if (!name) return res.status(400).json({ error: 'Task name required' });
   const subtasks = generateSubtasks(name);
-  const task = { id: tasks.length + 1, name, priority: priority || 'Normal', subtasks };
+  const task = { id: tasks.length + 1, name, priority: priority || 'Normal', category: category || '', subtasks };
   tasks.push(task);
   res.status(201).json(task);
 });
