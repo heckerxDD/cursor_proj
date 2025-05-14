@@ -12,9 +12,9 @@ const tasks = [];
 
 // Generate subtasks for a given task name (placeholder logic)
 function generateSubtasks(taskName) {
-  // Replace with AI or rule-based logic later
+  // First subtask is in_progress, rest are awaiting
   return [
-    { title: `Plan ${taskName}`, status: 'awaiting' },
+    { title: `Plan ${taskName}`, status: 'in_progress' },
     { title: `Execute ${taskName}`, status: 'awaiting' },
     { title: `Review ${taskName}`, status: 'awaiting' },
   ];
@@ -22,10 +22,10 @@ function generateSubtasks(taskName) {
 
 // Create a new task and auto-generate subtasks
 app.post('/api/tasks', (req, res) => {
-  const { name } = req.body;
+  const { name, priority } = req.body;
   if (!name) return res.status(400).json({ error: 'Task name required' });
   const subtasks = generateSubtasks(name);
-  const task = { id: tasks.length + 1, name, subtasks };
+  const task = { id: tasks.length + 1, name, priority: priority || 'Normal', subtasks };
   tasks.push(task);
   res.status(201).json(task);
 });
@@ -41,7 +41,7 @@ app.patch('/api/tasks/:taskId/subtasks/:subtaskIndex', (req, res) => {
   const { status } = req.body;
   const task = tasks.find(t => t.id === parseInt(taskId));
   if (!task) return res.status(404).json({ error: 'Task not found' });
-  if (!['awaiting', 'in_progress', 'done'].includes(status)) {
+  if (!['awaiting', 'in_progress', 'done', 'stuck'].includes(status)) {
     return res.status(400).json({ error: 'Invalid status' });
   }
   if (!task.subtasks[subtaskIndex]) {
@@ -49,6 +49,15 @@ app.patch('/api/tasks/:taskId/subtasks/:subtaskIndex', (req, res) => {
   }
   task.subtasks[subtaskIndex].status = status;
   res.json(task);
+});
+
+// Delete a task by ID
+app.delete('/api/tasks/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  const idx = tasks.findIndex(t => t.id === parseInt(taskId));
+  if (idx === -1) return res.status(404).json({ error: 'Task not found' });
+  tasks.splice(idx, 1);
+  res.status(204).end();
 });
 
 app.listen(PORT, () => {
