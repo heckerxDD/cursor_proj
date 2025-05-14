@@ -1,0 +1,56 @@
+const express = require('express');
+const cors = require('cors');
+
+const app = express();
+const PORT = 3001;
+
+app.use(cors());
+app.use(express.json());
+
+// Placeholder in-memory task store
+const tasks = [];
+
+// Generate subtasks for a given task name (placeholder logic)
+function generateSubtasks(taskName) {
+  // Replace with AI or rule-based logic later
+  return [
+    { title: `Plan ${taskName}`, status: 'awaiting' },
+    { title: `Execute ${taskName}`, status: 'awaiting' },
+    { title: `Review ${taskName}`, status: 'awaiting' },
+  ];
+}
+
+// Create a new task and auto-generate subtasks
+app.post('/api/tasks', (req, res) => {
+  const { name } = req.body;
+  if (!name) return res.status(400).json({ error: 'Task name required' });
+  const subtasks = generateSubtasks(name);
+  const task = { id: tasks.length + 1, name, subtasks };
+  tasks.push(task);
+  res.status(201).json(task);
+});
+
+// Get all tasks
+app.get('/api/tasks', (req, res) => {
+  res.json(tasks);
+});
+
+// Update subtask status
+app.patch('/api/tasks/:taskId/subtasks/:subtaskIndex', (req, res) => {
+  const { taskId, subtaskIndex } = req.params;
+  const { status } = req.body;
+  const task = tasks.find(t => t.id === parseInt(taskId));
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  if (!['awaiting', 'in_progress', 'done'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+  if (!task.subtasks[subtaskIndex]) {
+    return res.status(404).json({ error: 'Subtask not found' });
+  }
+  task.subtasks[subtaskIndex].status = status;
+  res.json(task);
+});
+
+app.listen(PORT, () => {
+  console.log(`Backend server running on port ${PORT}`);
+}); 
