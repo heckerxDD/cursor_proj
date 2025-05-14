@@ -11,8 +11,18 @@ app.use(express.json());
 const tasks = [];
 
 // Generate subtasks for a given task name (placeholder logic)
-function generateSubtasks(taskName) {
-  // First subtask is in_progress, rest are awaiting
+function generateSubtasks(taskName, category) {
+  if (category === 'signoff review') {
+    return [
+      { title: 'final IPO confirmation', status: 'in_progress' },
+      { title: 'update IPO', status: 'awaiting' },
+      { title: 'Launch timing run', status: 'awaiting' },
+      { title: 'formal check', status: 'awaiting' },
+      { title: 'top misc check', status: 'awaiting' },
+      { title: 'NA check', status: 'awaiting' },
+    ];
+  }
+  // Default subtasks
   return [
     { title: `Plan ${taskName}`, status: 'in_progress' },
     { title: `Execute ${taskName}`, status: 'awaiting' },
@@ -24,7 +34,7 @@ function generateSubtasks(taskName) {
 app.post('/api/tasks', (req, res) => {
   const { name, priority, category } = req.body;
   if (!name) return res.status(400).json({ error: 'Task name required' });
-  const subtasks = generateSubtasks(name);
+  const subtasks = generateSubtasks(name, category);
   const task = { id: tasks.length + 1, name, priority: priority || 'Normal', category: category || '', subtasks };
   tasks.push(task);
   res.status(201).json(task);
