@@ -19,21 +19,41 @@ function generateSubactions() {
 }
 
 function generateSubtasks(taskName, category) {
+  function withResultReviewed(subactions) {
+    return [
+      ...subactions,
+      { title: 'result reviewed', status: 'awaiting' },
+    ];
+  }
   if (category === 'signoff review') {
     return [
-      { title: 'final IPO confirmation', status: 'in_progress', subactions: generateSubactions() },
-      { title: 'update IPO', status: 'awaiting', subactions: generateSubactions() },
-      { title: 'Launch timing run', status: 'awaiting', subactions: generateSubactions() },
-      { title: 'formal check', status: 'awaiting', subactions: generateSubactions() },
-      { title: 'top misc check', status: 'awaiting', subactions: generateSubactions() },
-      { title: 'NA check', status: 'awaiting', subactions: generateSubactions() },
+      { title: 'final IPO confirmation', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'receive notification from PnR', status: 'awaiting' },
+      ]) },
+      { title: 'update IPO', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'run script', status: 'awaiting' },
+        { title: 'p4 diff psyaml', status: 'awaiting' },
+        { title: 'submit psyaml', status: 'awaiting' },
+      ]) },
+      { title: 'Launch timing run', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'verify SOL config', status: 'awaiting' },
+      ]) },
+      { title: 'formal check', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'launch run', status: 'awaiting' },
+      ]) },
+      { title: 'top misc check', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'launch run', status: 'awaiting' },
+      ]) },
+      { title: 'NA check', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'launch run', status: 'awaiting' },
+      ]) },
     ];
   }
   // Default subtasks
   return [
-    { title: `Plan ${taskName}`, status: 'in_progress', subactions: generateSubactions() },
-    { title: `Execute ${taskName}`, status: 'awaiting', subactions: generateSubactions() },
-    { title: `Review ${taskName}`, status: 'awaiting', subactions: generateSubactions() },
+    { title: `Plan ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
+    { title: `Execute ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
+    { title: `Review ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
   ];
 }
 
