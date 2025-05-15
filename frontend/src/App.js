@@ -27,6 +27,13 @@ function getTaskColor(priority) {
 
 const PRIORITY_OPTIONS = ['Low', 'Normal', 'High', 'Critical'];
 const CATEGORY_OPTIONS = ['IPO timing', 'signoff review'];
+const PROJECT_OPTIONS = ['edm3tp', 'edm3tpl', 'edm5tr'];
+
+function getDateString() {
+  const now = new Date();
+  const pad = n => n.toString().padStart(2, '0');
+  return `${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}`;
+}
 
 function App() {
   const [priority, setPriority] = useState('Normal');
@@ -35,16 +42,49 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState('');
-  const [project, setProject] = useState('');
+  const [project, setProject] = useState(PROJECT_OPTIONS[0]);
   const [block, setBlock] = useState('');
   const [ipo, setIpo] = useState('');
   const [layoutRev, setLayoutRev] = useState('');
   const [datecode, setDatecode] = useState('');
+  const [blocksByProject, setBlocksByProject] = useState({});
+  const [ipoByBlock, setIpoByBlock] = useState({});
+  const [layoutRevByBlock, setLayoutRevByBlock] = useState({});
+  const [datecodeByBlock, setDatecodeByBlock] = useState({});
+  const [blockInput, setBlockInput] = useState('');
+  const [ipoInput, setIpoInput] = useState('');
+  const [layoutRevInput, setLayoutRevInput] = useState('');
+  const [datecodeInput, setDatecodeInput] = useState('');
 
   useEffect(() => {
     document.title = 'edm test tracker';
     fetchTasks();
   }, []);
+
+  useEffect(() => {
+    // Load from localStorage on mount
+    const blocks = localStorage.getItem('blocksByProject');
+    const ipos = localStorage.getItem('ipoByBlock');
+    const layoutRevs = localStorage.getItem('layoutRevByBlock');
+    const datecodes = localStorage.getItem('datecodeByBlock');
+    if (blocks) setBlocksByProject(JSON.parse(blocks));
+    if (ipos) setIpoByBlock(JSON.parse(ipos));
+    if (layoutRevs) setLayoutRevByBlock(JSON.parse(layoutRevs));
+    if (datecodes) setDatecodeByBlock(JSON.parse(datecodes));
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('blocksByProject', JSON.stringify(blocksByProject));
+  }, [blocksByProject]);
+  useEffect(() => {
+    localStorage.setItem('ipoByBlock', JSON.stringify(ipoByBlock));
+  }, [ipoByBlock]);
+  useEffect(() => {
+    localStorage.setItem('layoutRevByBlock', JSON.stringify(layoutRevByBlock));
+  }, [layoutRevByBlock]);
+  useEffect(() => {
+    localStorage.setItem('datecodeByBlock', JSON.stringify(datecodeByBlock));
+  }, [datecodeByBlock]);
 
   function fetchTasks() {
     fetch('http://localhost:3001/api/tasks')
@@ -64,7 +104,7 @@ function App() {
     })
       .then(res => res.json())
       .then(() => {
-        setProject('');
+        setProject(PROJECT_OPTIONS[0]);
         setBlock('');
         setIpo('');
         setLayoutRev('');
@@ -94,7 +134,54 @@ function App() {
 
   function handleGenCmd(subtaskTitle, task) {
     if (subtaskTitle === 'formal check') {
-      const cmd = `edm3tp/timing_scripts/workflow/utils/initialize_edm_timing.py -P ${task.project || ''} -B ${task.block || ''} -R ${task.layoutRev || ''} -G fv_cmd`;
+      const block = task.block || 'NV_NAFLL_digi_nafll_lvt';
+      const layoutRev = task.layoutRev ? `rev${task.layoutRev}` : '';
+      const dateStr = getDateString();
+      const categoryStr = (task.category || '').replace(/\s+/g, '_');
+      const commands = [
+        {
+          build: `${block}_${dateStr}_noscan2feflat_${categoryStr}`,
+          golden: 'noscan',
+          revised: 'feflat',
+        },
+        {
+          build: `${block}_${dateStr}_noscan2ipo_${categoryStr}`,
+          golden: 'noscan',
+          revised: 'ipo',
+        },
+        {
+          build: `${block}_${dateStr}_feflat2flat_${categoryStr}`,
+          golden: 'feflat',
+          revised: 'flat',
+        },
+        {
+          build: `${block}_${dateStr}_flat2ipo_${categoryStr}`,
+          golden: 'flat',
+          revised: 'ipo',
+        },
+      ];
+      const cmds = commands.map(c =>
+        `formal_run -build ${c.build} -fv_golden_type ${c.golden} -fv_revised_type ${c.revised} -block ${block} -use_layout_rev ${layoutRev}  -use_64g_q 1`
+      ).join('\n') + '\nget_status';
+      setModalContent(cmds);
+      setModalOpen(true);
+    } else if (subtaskTitle === 'top misc check') {
+      const base = `/home/scratch.${task.project || ''}_main/${task.project || ''}/${task.project || ''}/timing/${task.project || ''}/library/top_misc_check.medic`;
+      const rev = task.layoutRev ? `-rev ${task.layoutRev}` : '';
+      const block = task.block ? `-block ${task.block}` : '';
+      const cmds = [
+        `load_medic ${base} ${rev} ${block} -check SPARE`,
+        `load_medic ${base} ${rev} ${block} -check UNCHAR`,
+        `load_medic ${base} ${rev} ${block} -check PCS`,
+        `load_medic ${base} ${rev} ${block} -check LIBOLA`,
+      ].join('\n');
+      setModalContent(cmds);
+      setModalOpen(true);
+    } else if (subtaskTitle === 'NA check') {
+      const base = '/home/scratch.edm3tpl_main/edm3tpl/edm3tpl/timing/na/da_hybrid_chiplet.NV_NAFLL_digi_nafll_lvt.medic';
+      const rev = task.layoutRev ? `-rev ${task.layoutRev}` : '';
+      const block = task.block ? `-block ${task.block}` : '';
+      const cmd = `load_medic ${base} ${rev} ${block}`.trim();
       setModalContent(cmd);
       setModalOpen(true);
     } else {
@@ -108,54 +195,236 @@ function App() {
     setModalContent('');
   }
 
+  function copyToClipboard() {
+    if (modalContent) {
+      navigator.clipboard.writeText(modalContent);
+    }
+  }
+
+  function handleAddOption(type) {
+    if (type === 'block' && blockInput) {
+      setBlocksByProject(prev => {
+        const blocks = prev[project] || [];
+        if (!blocks.includes(blockInput)) {
+          return { ...prev, [project]: [...blocks, blockInput] };
+        }
+        return prev;
+      });
+      setBlock(blockInput);
+      setBlockInput('');
+    } else if (type === 'ipo' && ipoInput && block) {
+      setIpoByBlock(prev => {
+        const ipos = prev[block] || [];
+        if (!ipos.includes(ipoInput)) {
+          return { ...prev, [block]: [...ipos, ipoInput] };
+        }
+        return prev;
+      });
+      setIpo(ipoInput);
+      setIpoInput('');
+    } else if (type === 'layoutRev' && layoutRevInput && block) {
+      setLayoutRevByBlock(prev => {
+        const revs = prev[block] || [];
+        if (!revs.includes(layoutRevInput)) {
+          return { ...prev, [block]: [...revs, layoutRevInput] };
+        }
+        return prev;
+      });
+      setLayoutRev(layoutRevInput);
+      setLayoutRevInput('');
+    } else if (type === 'datecode' && datecodeInput && block) {
+      setDatecodeByBlock(prev => {
+        const codes = prev[block] || [];
+        if (!codes.includes(datecodeInput)) {
+          return { ...prev, [block]: [...codes, datecodeInput] };
+        }
+        return prev;
+      });
+      setDatecode(datecodeInput);
+      setDatecodeInput('');
+    }
+  }
+
+  function handleDeleteOption(type, value) {
+    if (type === 'block') {
+      setBlocksByProject(prev => {
+        const blocks = (prev[project] || []).filter(b => b !== value);
+        const newObj = { ...prev, [project]: blocks };
+        // Remove associated IPOs, layout revs, datecodes
+        setIpoByBlock(prevIpo => {
+          const newIpo = { ...prevIpo };
+          delete newIpo[value];
+          return newIpo;
+        });
+        setLayoutRevByBlock(prevRev => {
+          const newRev = { ...prevRev };
+          delete newRev[value];
+          return newRev;
+        });
+        setDatecodeByBlock(prevDate => {
+          const newDate = { ...prevDate };
+          delete newDate[value];
+          return newDate;
+        });
+        return newObj;
+      });
+      if (block === value) setBlock('');
+    } else if (type === 'ipo') {
+      setIpoByBlock(prev => {
+        const ipos = (prev[block] || []).filter(i => i !== value);
+        return { ...prev, [block]: ipos };
+      });
+      if (ipo === value) setIpo('');
+    } else if (type === 'layoutRev') {
+      setLayoutRevByBlock(prev => {
+        const revs = (prev[block] || []).filter(r => r !== value);
+        return { ...prev, [block]: revs };
+      });
+      if (layoutRev === value) setLayoutRev('');
+    } else if (type === 'datecode') {
+      setDatecodeByBlock(prev => {
+        const codes = (prev[block] || []).filter(c => c !== value);
+        return { ...prev, [block]: codes };
+      });
+      if (datecode === value) setDatecode('');
+    }
+  }
+
+  // Reset block, ipo, layoutRev when project/block changes
+  function handleProjectChange(e) {
+    setProject(e.target.value);
+    setBlock('');
+    setIpo('');
+    setLayoutRev('');
+  }
+  function handleBlockChange(e) {
+    setBlock(e.target.value);
+    setIpo('');
+    setLayoutRev('');
+  }
+
+  const blockOptions = blocksByProject[project] || [];
+  const ipoOptions = ipoByBlock[block] || [];
+  const layoutRevOptions = layoutRevByBlock[block] || [];
+  const datecodeOptions = datecodeByBlock[block] || [];
+
   return (
     <div className="App" style={{ background: '#f7f7f7', minHeight: '100vh', padding: 24 }}>
       {/* Modal Popup */}
       {modalOpen && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.3)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#fff', padding: 32, borderRadius: 12, minWidth: 240, minHeight: 80, boxShadow: '0 2px 16px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{ marginBottom: 16, fontSize: 18 }}>{modalContent}</div>
-            <button onClick={closeModal} style={{ padding: '6px 18px', borderRadius: 6, border: 'none', background: '#1890ff', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Close</button>
+            <div style={{ marginBottom: 16, fontSize: 18, whiteSpace: 'pre-line' }}>{modalContent}</div>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={copyToClipboard} style={{ padding: '6px 18px', borderRadius: 6, border: 'none', background: '#52c41a', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Copy Cmd</button>
+              <button onClick={closeModal} style={{ padding: '6px 18px', borderRadius: 6, border: 'none', background: '#1890ff', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Close</button>
+            </div>
           </div>
         </div>
       )}
       <h1>Edm Task Manager</h1>
       <form onSubmit={handleCreateTask} style={{ marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input
-          value={project}
-          onChange={e => setProject(e.target.value)}
-          placeholder="project"
-          disabled={loading}
-          style={{ minWidth: 80 }}
-        />
-        <input
-          value={block}
-          onChange={e => setBlock(e.target.value)}
-          placeholder="block"
-          disabled={loading}
-          style={{ minWidth: 80 }}
-        />
-        <input
-          value={ipo}
-          onChange={e => setIpo(e.target.value)}
-          placeholder="IPO"
-          disabled={loading}
-          style={{ minWidth: 80 }}
-        />
-        <input
-          value={layoutRev}
-          onChange={e => setLayoutRev(e.target.value)}
-          placeholder="layout rev"
-          disabled={loading}
-          style={{ minWidth: 80 }}
-        />
-        <input
-          value={datecode}
-          onChange={e => setDatecode(e.target.value)}
-          placeholder="datecode"
-          disabled={loading}
-          style={{ minWidth: 80 }}
-        />
+        <select value={project} onChange={handleProjectChange} disabled={loading}>
+          {PROJECT_OPTIONS.map(opt => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <select value={block} onChange={handleBlockChange} disabled={loading} style={{ minWidth: 120 }}>
+              <option value="">Select block</option>
+              {blockOptions.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            {block && (
+              <button type="button" onClick={() => handleDeleteOption('block', block)} style={{ color: 'red', fontSize: 13, height: 28, marginLeft: 2 }}>Delete</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+            <input
+              value={blockInput}
+              onChange={e => setBlockInput(e.target.value)}
+              placeholder="Add block"
+              disabled={loading}
+              style={{ minWidth: 80 }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddOption('block'); } }}
+            />
+            <button type="button" onClick={() => handleAddOption('block')} disabled={loading || !blockInput}>Add</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <select value={ipo} onChange={e => setIpo(e.target.value)} disabled={loading || !block} style={{ minWidth: 120 }}>
+              <option value="">Select IPO</option>
+              {ipoOptions.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            {ipo && (
+              <button type="button" onClick={() => handleDeleteOption('ipo', ipo)} style={{ color: 'red', fontSize: 13, height: 28, marginLeft: 2 }}>Delete</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+            <input
+              value={ipoInput}
+              onChange={e => setIpoInput(e.target.value)}
+              placeholder="Add IPO"
+              disabled={loading || !block}
+              style={{ minWidth: 80 }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddOption('ipo'); } }}
+            />
+            <button type="button" onClick={() => handleAddOption('ipo')} disabled={loading || !ipoInput || !block}>Add</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <select value={layoutRev} onChange={e => setLayoutRev(e.target.value)} disabled={loading || !block} style={{ minWidth: 120 }}>
+              <option value="">Select layout rev</option>
+              {layoutRevOptions.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            {layoutRev && (
+              <button type="button" onClick={() => handleDeleteOption('layoutRev', layoutRev)} style={{ color: 'red', fontSize: 13, height: 28, marginLeft: 2 }}>Delete</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+            <input
+              value={layoutRevInput}
+              onChange={e => setLayoutRevInput(e.target.value)}
+              placeholder="Add layout rev"
+              disabled={loading || !block}
+              style={{ minWidth: 80 }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddOption('layoutRev'); } }}
+            />
+            <button type="button" onClick={() => handleAddOption('layoutRev')} disabled={loading || !layoutRevInput || !block}>Add</button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <select value={datecode} onChange={e => setDatecode(e.target.value)} disabled={loading || !block} style={{ minWidth: 120 }}>
+              <option value="">Select datecode</option>
+              {datecodeOptions.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
+            {datecode && (
+              <button type="button" onClick={() => handleDeleteOption('datecode', datecode)} style={{ color: 'red', fontSize: 13, height: 28, marginLeft: 2 }}>Delete</button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
+            <input
+              value={datecodeInput}
+              onChange={e => setDatecodeInput(e.target.value)}
+              placeholder="Add datecode"
+              disabled={loading || !block}
+              style={{ minWidth: 80 }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddOption('datecode'); } }}
+            />
+            <button type="button" onClick={() => handleAddOption('datecode')} disabled={loading || !datecodeInput || !block}>Add</button>
+          </div>
+        </div>
         <select value={category} onChange={e => setCategory(e.target.value)} disabled={loading}>
           {CATEGORY_OPTIONS.map(opt => (
             <option key={opt} value={opt}>{opt}</option>
@@ -200,61 +469,66 @@ function App() {
                 Priority: {task.priority || 'Normal'}
               </span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch', justifyContent: 'center', marginTop: 16 }}>
-              {task.subtasks.map((sub, idx) => {
-                const allSubactionsDone = sub.subactions && sub.subactions.length > 0 && sub.subactions.every(sa => sa.status === 'done');
-                const subtaskStatus = allSubactionsDone ? 'done' : sub.status;
-                return (
-                  <div key={idx} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 60, marginBottom: 2 }}>
-                    <div
-                      style={{
-                        background: STATUS_COLORS[subtaskStatus],
-                        color: subtaskStatus === 'awaiting' ? '#fff' : '#222',
-                        borderRadius: 8,
-                        padding: '12px 18px',
-                        fontWeight: 600,
-                        fontSize: 16,
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
-                        border: subtaskStatus === 'stuck' ? '2px solid #a020f0' : undefined,
-                        minWidth: 220,
-                        maxWidth: 220,
-                        textAlign: 'center',
-                        position: 'relative',
-                        marginRight: 16,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {sub.title}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      {sub.subactions && sub.subactions.length > 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
-                          {sub.subactions.map((sa, saIdx) => (
-                            <div key={saIdx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: 12, background: '#f8f8f8', borderRadius: 4, margin: '2px 0', padding: '2px 6px', color: sa.status === 'done' ? STATUS_COLORS['done'] : sa.status === 'stuck' ? STATUS_COLORS['stuck'] : '#222', minWidth: 120 }}>
-                              <span style={{ fontWeight: 500 }}>{sa.title}</span>
-                              <span style={{ margin: '2px 0', fontWeight: 600, color: STATUS_COLORS[sa.status] }}>{STATUS_LABELS[sa.status]}</span>
-                              {sa.status !== 'done' && (
-                                <div style={{ display: 'flex', gap: 2 }}>
-                                  <button onClick={() => handleGenCmd(sub.title, task)} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#888', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>gen cmd</button>
-                                  {['done', 'stuck'].filter(s => s !== sa.status).map(s => (
-                                    <button
-                                      key={s}
-                                      style={{ fontSize: 11, borderRadius: 3, padding: '1px 6px', border: 'none', background: STATUS_COLORS[s], color: '#fff', marginLeft: 2, cursor: 'pointer' }}
-                                      onClick={() => updateSubactionStatus(task.id, idx, saIdx, s)}
-                                    >
-                                      {s === 'done' ? 'Done' : 'Stuck'}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'stretch', justifyContent: 'center', marginTop: 16 }}>
+              {task.subtasks.map((group, groupIdx) => (
+                <div key={groupIdx} style={{ marginBottom: 12 }}>
+                  <div style={{ fontWeight: 700, fontSize: 18, color: '#333', marginBottom: 6, textTransform: 'capitalize' }}>{group.group}</div>
+                  {group.subtasks.map((sub, idx) => {
+                    const allSubactionsDone = sub.subactions && sub.subactions.length > 0 && sub.subactions.every(sa => sa.status === 'done');
+                    const subtaskStatus = allSubactionsDone ? 'done' : sub.status;
+                    return (
+                      <div key={idx} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 60, marginBottom: 2 }}>
+                        <div
+                          style={{
+                            background: STATUS_COLORS[subtaskStatus],
+                            color: subtaskStatus === 'awaiting' ? '#fff' : '#222',
+                            borderRadius: 8,
+                            padding: '12px 18px',
+                            fontWeight: 600,
+                            fontSize: 16,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
+                            border: subtaskStatus === 'stuck' ? '2px solid #a020f0' : undefined,
+                            minWidth: 220,
+                            maxWidth: 220,
+                            textAlign: 'center',
+                            position: 'relative',
+                            marginRight: 16,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {sub.title}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                        <div style={{ flex: 1 }}>
+                          {sub.subactions && sub.subactions.length > 0 && (
+                            <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
+                              {sub.subactions.map((sa, saIdx) => (
+                                <div key={saIdx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: 12, background: '#f8f8f8', borderRadius: 4, margin: '2px 0', padding: '2px 6px', color: sa.status === 'done' ? STATUS_COLORS['done'] : sa.status === 'stuck' ? STATUS_COLORS['stuck'] : '#222', minWidth: 120 }}>
+                                  <span style={{ fontWeight: 500 }}>{sa.title}</span>
+                                  <span style={{ margin: '2px 0', fontWeight: 600, color: STATUS_COLORS[sa.status] }}>{STATUS_LABELS[sa.status]}</span>
+                                  {sa.status !== 'done' && (
+                                    <div style={{ display: 'flex', gap: 2 }}>
+                                      <button onClick={() => handleGenCmd(sub.title, task)} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#888', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>gen cmd</button>
+                                      {['done', 'stuck'].filter(s => s !== sa.status).map(s => (
+                                        <button
+                                          key={s}
+                                          style={{ fontSize: 11, borderRadius: 3, padding: '1px 6px', border: 'none', background: STATUS_COLORS[s], color: '#fff', marginLeft: 2, cursor: 'pointer' }}
+                                          onClick={() => updateSubactionStatus(task.id, groupIdx, saIdx, s)}
+                                        >
+                                          {s === 'done' ? 'Done' : 'Stuck'}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
               <button onClick={() => removeTask(task.id)} style={{ background: '#ff4d4f', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontWeight: 600, cursor: 'pointer' }}>

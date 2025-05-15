@@ -26,7 +26,7 @@ function generateSubtasks(taskName, category) {
     ];
   }
   if (category === 'signoff review') {
-    return [
+    const timingSubtasks = [
       { title: 'final IPO confirmation', status: 'awaiting', subactions: withResultReviewed([
         { title: 'receive notification from PnR', status: 'awaiting' },
       ]) },
@@ -38,6 +38,8 @@ function generateSubtasks(taskName, category) {
       { title: 'Launch timing run', status: 'awaiting', subactions: withResultReviewed([
         { title: 'verify SOL config', status: 'awaiting' },
       ]) },
+    ];
+    const collateralsSubtasks = [
       { title: 'formal check', status: 'awaiting', subactions: withResultReviewed([
         { title: 'launch run', status: 'awaiting' },
       ]) },
@@ -47,13 +49,24 @@ function generateSubtasks(taskName, category) {
       { title: 'NA check', status: 'awaiting', subactions: withResultReviewed([
         { title: 'launch run', status: 'awaiting' },
       ]) },
+      { title: 'uncertainty value check', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'review report dir', status: 'awaiting' },
+        { title: 'run uncertainty sort', status: 'awaiting' },
+        { title: 'review uncertainty numbers', status: 'awaiting' },
+      ]) },
+    ];
+    return [
+      { group: 'timing', subtasks: timingSubtasks },
+      { group: 'collaterals', subtasks: collateralsSubtasks },
     ];
   }
   // Default subtasks
   return [
-    { title: `Plan ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
-    { title: `Execute ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
-    { title: `Review ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
+    { group: 'timing', subtasks: [
+      { title: `Plan ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
+      { title: `Execute ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
+      { title: `Review ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
+    ]}
   ];
 }
 
