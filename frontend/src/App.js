@@ -93,8 +93,34 @@ function App() {
   }
 
   function handleGenCmd() {
-    setModalContent('hello world');
+    // Demo: hardcoded SSH info and command
+    const sshPayload = {
+      host: 'rno2-container-xterm-039.prd.it.nvidia.com',
+      port: 5107,
+      username: 'jaxing',
+      password: 'Henchangjiandemima9!',
+      command: 'echo hello world',
+      identityFile: '/Users/jaxing/.ssh/id_rsa_nvidia',
+    };
+    // Host rno2-container-xterm-039
+    // HostName rno2-container-xterm-039.prd.it.nvidia.com
+    // User jaxing
+    // Port 5107
+    // IdentityFile ~/.ssh/id_rsa_nvidia
+    setModalContent('Running command...');
     setModalOpen(true);
+    fetch('http://localhost:3001/api/ssh-cmd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(sshPayload),
+    })
+      .then(res => res.json())
+      .then(data => {
+        setModalContent(data.output || data.error || 'No output');
+      })
+      .catch(err => {
+        setModalContent('Error: ' + err.message);
+      });
   }
 
   function closeModal() {

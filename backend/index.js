@@ -1,5 +1,10 @@
 const express = require('express');
 const cors = require('cors');
+const { Client } = require('ssh2');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { execSync } = require('child_process');
 
 const app = express();
 const PORT = 3001;
@@ -113,6 +118,68 @@ app.delete('/api/tasks/:taskId', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Task not found' });
   tasks.splice(idx, 1);
   res.status(204).end();
+});
+
+// SSH command execution endpoint
+app.post('/api/ssh-cmd', async (req, res) => {
+  const { host, port, username, password, command, privateKey } = req.body;
+  if (!host || !username || !command) {
+    return res.status(400).json({ error: 'Missing SSH connection or command parameters' });
+  }
+  let pemKey = privateKey;
+  let tempFiles = [];
+  try {
+    if (privateKey && privateKey.includes('BEGIN OPENSSH PRIVATE KEY')) {
+      // Write OpenSSH key to temp file
+      const tmpOpenSSH = path.join(os.tmpdir(), `openssh_key_${Date.now()}`);
+      fs.writeFileSync(tmpOpenSSH, privateKey, { mode: 0o600 });
+      tempFiles.push(tmpOpenSSH);
+      // Convert to PEM using ssh-keygen
+      const tmpPEM = path.join(os.tmpdir(), `pem_key_${Date.now()}`);
+      execSync(`ssh-keygen -p -m PEM -N "" -f ${tmpOpenSSH} -P "" -q -y > ${tmpPEM}`);
+      pemKey = fs.readFileSync(tmpPEM, 'utf8');
+      tempFiles.push(tmpPEM);
+    }
+    const conn = new Client();
+    let output = '';
+    const connectConfig = {
+      host,
+      port: port || 22,
+      username,
+    };
+    if (pemKey) {
+      connectConfig.privateKey = pemKey;
+    } else if (password) {
+      connectConfig.password = password;
+    } else {
+      return res.status(400).json({ error: 'No authentication method provided' });
+    }
+    conn.on('ready', () => {
+      conn.exec(command, (err, stream) => {
+        if (err) {
+          conn.end();
+          return res.status(500).json({ error: err.message });
+        }
+        stream.on('close', (code, signal) => {
+          conn.end();
+          res.json({ output });
+        }).on('data', (data) => {
+          output += data.toString();
+        }).stderr.on('data', (data) => {
+          output += data.toString();
+        });
+      });
+    }).on('error', (err) => {
+      res.status(500).json({ error: err.message });
+    }).connect(connectConfig);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    // Clean up temp files
+    for (const file of tempFiles) {
+      try { fs.unlinkSync(file); } catch {}
+    }
+  }
 });
 
 app.listen(PORT, () => {
