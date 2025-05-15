@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-const STATUS = ['awaiting', 'in_progress', 'done', 'stuck'];
 const STATUS_LABELS = {
   awaiting: 'Awaiting',
   in_progress: 'In Progress',
@@ -72,24 +71,29 @@ function App() {
       .finally(() => setLoading(false));
   }
 
-  function updateSubtaskStatus(taskId, subtaskIndex, status) {
-    fetch(`http://localhost:3001/api/tasks/${taskId}/subtasks/${subtaskIndex}`, {
+  function updateSubactionStatus(taskId, subtaskIndex, subactionIndex, status) {
+    fetch(`http://localhost:3001/api/tasks/${taskId}/subtasks/${subtaskIndex}/subactions/${subactionIndex}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status }),
     })
       .then(res => res.json())
       .then((updatedTask) => {
-        // If marking as done, set next subtask to in_progress if it is awaiting
-        if (status === 'done') {
-          const nextIdx = parseInt(subtaskIndex) + 1;
-          if (updatedTask && updatedTask.subtasks && updatedTask.subtasks[nextIdx] && updatedTask.subtasks[nextIdx].status === 'awaiting') {
-            fetch(`http://localhost:3001/api/tasks/${taskId}/subtasks/${nextIdx}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'in_progress' }),
-            }).then(() => fetchTasks());
-            return;
+        // After updating a subaction, check if all subactions are done
+        const task = updatedTask;
+        if (task && task.subtasks) {
+          const sub = task.subtasks[subtaskIndex];
+          if (sub && sub.subactions && sub.subactions.length > 0 && sub.subactions.every(sa => sa.status === 'done')) {
+            // All subactions done, set next subtask to in_progress if it is awaiting
+            const nextIdx = parseInt(subtaskIndex) + 1;
+            if (task.subtasks[nextIdx] && task.subtasks[nextIdx].status === 'awaiting') {
+              fetch(`http://localhost:3001/api/tasks/${taskId}/subtasks/${nextIdx}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: 'in_progress' }),
+              }).then(() => fetchTasks());
+              return;
+            }
           }
         }
         fetchTasks();
@@ -157,41 +161,53 @@ function App() {
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'row', gap: 24, alignItems: 'center', justifyContent: 'center', marginTop: 16 }}>
-              {task.subtasks.map((sub, idx) => (
-                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 180 }}>
-                  <div
-                    style={{
-                      background: STATUS_COLORS[sub.status],
-                      color: sub.status === 'awaiting' ? '#fff' : '#222',
-                      borderRadius: 8,
-                      padding: '12px 18px',
-                      fontWeight: 600,
-                      fontSize: 16,
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
-                      border: sub.status === 'stuck' ? '2px solid #a020f0' : undefined,
-                      marginBottom: 8,
-                      minWidth: 120,
-                      textAlign: 'center',
-                      position: 'relative',
-                    }}
-                  >
-                    {sub.title}
+              {task.subtasks.map((sub, idx) => {
+                const allSubactionsDone = sub.subactions && sub.subactions.length > 0 && sub.subactions.every(sa => sa.status === 'done');
+                const subtaskStatus = allSubactionsDone ? 'done' : sub.status;
+                return (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 180 }}>
+                    <div
+                      style={{
+                        background: STATUS_COLORS[subtaskStatus],
+                        color: subtaskStatus === 'awaiting' ? '#fff' : '#222',
+                        borderRadius: 8,
+                        padding: '12px 18px',
+                        fontWeight: 600,
+                        fontSize: 16,
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
+                        border: subtaskStatus === 'stuck' ? '2px solid #a020f0' : undefined,
+                        marginBottom: 8,
+                        minWidth: 120,
+                        textAlign: 'center',
+                        position: 'relative',
+                      }}
+                    >
+                      {sub.title}
+                    </div>
+                    <div style={{ width: '100%', marginBottom: 4 }}>
+                      {sub.subactions && sub.subactions.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          {sub.subactions.map((sa, saIdx) => (
+                            <div key={saIdx} style={{ display: 'flex', alignItems: 'center', fontSize: 12, background: '#f8f8f8', borderRadius: 4, margin: '2px 0', padding: '2px 6px', color: sa.status === 'done' ? STATUS_COLORS['done'] : sa.status === 'stuck' ? STATUS_COLORS['stuck'] : '#222' }}>
+                              <span style={{ flex: 1 }}>{sa.title}</span>
+                              <span style={{ marginRight: 6, fontWeight: 600, color: STATUS_COLORS[sa.status] }}>{STATUS_LABELS[sa.status]}</span>
+                              {['done', 'stuck'].filter(s => s !== sa.status).map(s => (
+                                <button
+                                  key={s}
+                                  style={{ fontSize: 11, borderRadius: 3, padding: '1px 6px', border: 'none', background: STATUS_COLORS[s], color: '#fff', marginLeft: 2, cursor: 'pointer' }}
+                                  onClick={() => updateSubactionStatus(task.id, idx, saIdx, s)}
+                                >
+                                  {s === 'done' ? 'Done' : 'Stuck'}
+                                </button>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
-                    {STATUS.filter(s => s !== sub.status && s !== 'in_progress' && s !== 'awaiting').map(s => (
-                      (s !== 'stuck' || sub.status !== 'done') && (
-                        <button
-                          key={s}
-                          style={{ fontSize: 12, borderRadius: 4, padding: '2px 8px', border: 'none', background: STATUS_COLORS[s], color: s === 'awaiting' ? '#fff' : '#222', marginRight: 2, marginBottom: 2, cursor: 'pointer' }}
-                          onClick={() => updateSubtaskStatus(task.id, idx, s)}
-                        >
-                          {s === 'stuck' ? 'Mark Stuck' : `Set ${STATUS_LABELS[s]}`}
-                        </button>
-                      )
-                    ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
               <button onClick={() => removeTask(task.id)} style={{ background: '#ff4d4f', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontWeight: 600, cursor: 'pointer' }}>

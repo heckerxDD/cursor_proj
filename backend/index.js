@@ -10,23 +10,30 @@ app.use(express.json());
 // Placeholder in-memory task store
 const tasks = [];
 
-// Generate subtasks for a given task name (placeholder logic)
+function generateSubactions() {
+  return [
+    { title: 'sub action1', status: 'awaiting' },
+    { title: 'sub action2', status: 'awaiting' },
+    { title: 'sub action3', status: 'awaiting' },
+  ];
+}
+
 function generateSubtasks(taskName, category) {
   if (category === 'signoff review') {
     return [
-      { title: 'final IPO confirmation', status: 'in_progress' },
-      { title: 'update IPO', status: 'awaiting' },
-      { title: 'Launch timing run', status: 'awaiting' },
-      { title: 'formal check', status: 'awaiting' },
-      { title: 'top misc check', status: 'awaiting' },
-      { title: 'NA check', status: 'awaiting' },
+      { title: 'final IPO confirmation', status: 'in_progress', subactions: generateSubactions() },
+      { title: 'update IPO', status: 'awaiting', subactions: generateSubactions() },
+      { title: 'Launch timing run', status: 'awaiting', subactions: generateSubactions() },
+      { title: 'formal check', status: 'awaiting', subactions: generateSubactions() },
+      { title: 'top misc check', status: 'awaiting', subactions: generateSubactions() },
+      { title: 'NA check', status: 'awaiting', subactions: generateSubactions() },
     ];
   }
   // Default subtasks
   return [
-    { title: `Plan ${taskName}`, status: 'in_progress' },
-    { title: `Execute ${taskName}`, status: 'awaiting' },
-    { title: `Review ${taskName}`, status: 'awaiting' },
+    { title: `Plan ${taskName}`, status: 'in_progress', subactions: generateSubactions() },
+    { title: `Execute ${taskName}`, status: 'awaiting', subactions: generateSubactions() },
+    { title: `Review ${taskName}`, status: 'awaiting', subactions: generateSubactions() },
   ];
 }
 
@@ -58,6 +65,24 @@ app.patch('/api/tasks/:taskId/subtasks/:subtaskIndex', (req, res) => {
     return res.status(404).json({ error: 'Subtask not found' });
   }
   task.subtasks[subtaskIndex].status = status;
+  res.json(task);
+});
+
+// Update subaction status
+app.patch('/api/tasks/:taskId/subtasks/:subtaskIndex/subactions/:subactionIndex', (req, res) => {
+  const { taskId, subtaskIndex, subactionIndex } = req.params;
+  const { status } = req.body;
+  const task = tasks.find(t => t.id === parseInt(taskId));
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  const subtask = task.subtasks[subtaskIndex];
+  if (!subtask) return res.status(404).json({ error: 'Subtask not found' });
+  if (!subtask.subactions || !subtask.subactions[subactionIndex]) {
+    return res.status(404).json({ error: 'Subaction not found' });
+  }
+  if (!['awaiting', 'done', 'stuck'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status' });
+  }
+  subtask.subactions[subactionIndex].status = status;
   res.json(task);
 });
 
