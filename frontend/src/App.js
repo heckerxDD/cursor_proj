@@ -60,7 +60,7 @@ function App() {
     fetch('http://localhost:3001/api/tasks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: joinedName, priority, category }),
+      body: JSON.stringify({ name: joinedName, priority, category, project, block, ipo, layoutRev, datecode }),
     })
       .then(res => res.json())
       .then(() => {
@@ -92,35 +92,15 @@ function App() {
     }).then(fetchTasks);
   }
 
-  function handleGenCmd() {
-    // Demo: hardcoded SSH info and command
-    const sshPayload = {
-      host: 'rno2-container-xterm-039.prd.it.nvidia.com',
-      port: 5107,
-      username: 'jaxing',
-      password: 'Henchangjiandemima9!',
-      command: 'echo hello world',
-      identityFile: '/Users/jaxing/.ssh/id_rsa_nvidia',
-    };
-    // Host rno2-container-xterm-039
-    // HostName rno2-container-xterm-039.prd.it.nvidia.com
-    // User jaxing
-    // Port 5107
-    // IdentityFile ~/.ssh/id_rsa_nvidia
-    setModalContent('Running command...');
-    setModalOpen(true);
-    fetch('http://localhost:3001/api/ssh-cmd', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(sshPayload),
-    })
-      .then(res => res.json())
-      .then(data => {
-        setModalContent(data.output || data.error || 'No output');
-      })
-      .catch(err => {
-        setModalContent('Error: ' + err.message);
-      });
+  function handleGenCmd(subtaskTitle, task) {
+    if (subtaskTitle === 'formal check') {
+      const cmd = `edm3tp/timing_scripts/workflow/utils/initialize_edm_timing.py -P ${task.project || ''} -B ${task.block || ''} -R ${task.layoutRev || ''} -G fv_cmd`;
+      setModalContent(cmd);
+      setModalOpen(true);
+    } else {
+      setModalContent('hello world');
+      setModalOpen(true);
+    }
   }
 
   function closeModal() {
@@ -255,7 +235,7 @@ function App() {
                               <span style={{ margin: '2px 0', fontWeight: 600, color: STATUS_COLORS[sa.status] }}>{STATUS_LABELS[sa.status]}</span>
                               {sa.status !== 'done' && (
                                 <div style={{ display: 'flex', gap: 2 }}>
-                                  <button onClick={handleGenCmd} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#888', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>gen cmd</button>
+                                  <button onClick={() => handleGenCmd(sub.title, task)} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#888', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>gen cmd</button>
                                   {['done', 'stuck'].filter(s => s !== sa.status).map(s => (
                                     <button
                                       key={s}
