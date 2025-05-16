@@ -18,6 +18,19 @@ function generateSubactions() {
   ];
 }
 
+function addUniversalSubactionToGroups(groups) {
+  return groups.map(group => ({
+    ...group,
+    subtasks: group.subtasks.map(subtask => ({
+      ...subtask,
+      subactions: [
+        ...(subtask.subactions || []),
+        { title: 'nvbug needed?', status: 'awaiting' }
+      ]
+    }))
+  }));
+}
+
 function generateSubtasks(taskName, category) {
   function withResultReviewed(subactions) {
     return [
@@ -37,6 +50,13 @@ function generateSubtasks(taskName, category) {
       ]) },
       { title: 'Launch timing run', status: 'awaiting', subactions: withResultReviewed([
         { title: 'verify SOL config', status: 'awaiting' },
+      ]) },
+      { title: 'ptc run', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'launch run', status: 'awaiting' },
+        { title: 'review gca session', status: 'awaiting' },
+      ]) },
+      { title: 'CA check', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'review results', status: 'awaiting' },
       ]) },
     ];
     const collateralsSubtasks = [
@@ -60,20 +80,20 @@ function generateSubtasks(taskName, category) {
         { title: 'review content', status: 'awaiting' },
       ]) },
     ];
-    return [
+    return addUniversalSubactionToGroups([
       { group: 'timing', subtasks: timingSubtasks },
       { group: 'collaterals', subtasks: collateralsSubtasks },
       { group: 'report navigation', subtasks: reportNavigationSubtasks },
-    ];
+    ]);
   }
   // Default subtasks
-  return [
+  return addUniversalSubactionToGroups([
     { group: 'timing', subtasks: [
       { title: `Plan ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
       { title: `Execute ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
       { title: `Review ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
     ]}
-  ];
+  ]);
 }
 
 // Create a new task and auto-generate subtasks
@@ -100,6 +120,14 @@ app.post('/api/tasks', (req, res) => {
 // Get all tasks
 app.get('/api/tasks', (req, res) => {
   res.json(tasks);
+});
+
+// Get a single task by ID
+app.get('/api/tasks/:taskId', (req, res) => {
+  const { taskId } = req.params;
+  const task = tasks.find(t => t.id === parseInt(taskId));
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  res.json(task);
 });
 
 // Update subtask status

@@ -55,6 +55,7 @@ function App() {
   const [layoutRevInput, setLayoutRevInput] = useState('');
   const [datecodeByBlock, setDatecodeByBlock] = useState({});
   const [datecodeInput, setDatecodeInput] = useState('');
+  const [refreshPopupVisible, setRefreshPopupVisible] = useState(false);
 
   useEffect(() => {
     document.title = 'edm test tracker';
@@ -107,7 +108,26 @@ function App() {
     }).then(fetchTasks);
   }
 
-  function handleGenCmd(subtaskTitle, task) {
+  function handleGenCmd(subtaskTitle, task, subactionTitle) {
+    if (subtaskTitle === 'timing package review') {
+      const block = task.block || '';
+      const ipo = task.ipo || '';
+      const project = task.project || '';
+      const datecode = task.datecode || '';
+      const layoutRev = task.layoutRev || '';
+      const cmd = `${project}/timing_scripts/workflow/utils/timing_package_reviewer.py --block-name ${block} --ipo-number ${ipo} --project ${project} --datecode ${datecode} --rev ${layoutRev}`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    }
+    if (subtaskTitle === 'review gca session') {
+      const block = task.block || '';
+      const ipo = task.ipo || '';
+      const cmd = `ls -rtld save_session/*${block}*${ipo}*gca* | grep -v cmnone | awk -F '/' '{print "restore_session -constraints -session_name", $2}'`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    }
     if (subtaskTitle === 'formal check') {
       const block = task.block || 'NV_NAFLL_digi_nafll_lvt';
       const layoutRev = task.layoutRev ? `${task.layoutRev}` : '';
@@ -152,13 +172,28 @@ function App() {
       ].join('\n');
       setModalContent(cmds);
       setModalOpen(true);
-    } else if (subtaskTitle === 'NA check') {
-      const base = '/home/scratch.edm3tpl_main/edm3tpl/edm3tpl/timing/na/da_hybrid_chiplet.NV_NAFLL_digi_nafll_lvt.medic';
-      const rev = task.layoutRev ? `-rev ${task.layoutRev}` : '';
-      const block = task.block ? `-block ${task.block}` : '';
-      const cmd = `load_medic ${base} ${rev} ${block}`.trim();
+    } else if (subtaskTitle === 'NA check' && subactionTitle === 'launch run') {
+      const project = task.project || '';
+      const block = task.block || '';
+      const cmd = `load_medic /home/scratch.${project}_main/${project}/${project}/timing/na/da_hybrid_chiplet.${block}.medic`;
       setModalContent(cmd);
       setModalOpen(true);
+      return;
+    } else if (subtaskTitle === 'NA check' && subactionTitle === 'result reviewed') {
+      const layoutRev = task.layoutRev || '';
+      const block = task.block || '';
+      const cmd = `grep -i "failed" log/design_audit.${layoutRev}.ipo_${block}_*/*.summary`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    } else if (subtaskTitle === 'CA check') {
+      const layoutRev = task.layoutRev || '';
+      const block = task.block || '';
+      const datecode = task.datecode || '';
+      const cmd = `grep 'ERROR' rep/clocks/${layoutRev}/${block}/${datecode}*/clockAuditor/*/*`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
     } else {
       setModalContent('hello world');
       setModalOpen(true);
@@ -240,6 +275,16 @@ function App() {
   const layoutRevOptions = layoutRevByBlock[block] || [];
   const datecodeOptions = datecodeByBlock[block] || [];
 
+  function handleRefreshTask(taskId) {
+    fetch(`http://localhost:3001/api/tasks/${taskId}`)
+      .then(res => res.json())
+      .then(updatedTask => {
+        setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? updatedTask : t));
+        setRefreshPopupVisible(true);
+        setTimeout(() => setRefreshPopupVisible(false), 1500);
+      });
+  }
+
   return (
     <div className="App" style={{ background: '#f7f7f7', minHeight: '100vh', padding: 24 }}>
       {/* Modal Popup */}
@@ -252,6 +297,25 @@ function App() {
               <button onClick={closeModal} style={{ padding: '6px 18px', borderRadius: 6, border: 'none', background: '#1890ff', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Close</button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Refresh popup */}
+      {refreshPopupVisible && (
+        <div style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: '#1890ff',
+          color: '#fff',
+          padding: '24px 48px',
+          borderRadius: 12,
+          fontSize: 22,
+          fontWeight: 700,
+          zIndex: 2000,
+          boxShadow: '0 2px 16px rgba(0,0,0,0.18)'
+        }}>
+          Page refreshed
         </div>
       )}
       <h1>Edm Task Manager</h1>
@@ -380,6 +444,7 @@ function App() {
               <span style={{ fontSize: 16, fontWeight: 500, background: '#fff', borderRadius: 8, padding: '4px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginLeft: 8 }}>
                 Priority: {task.priority || 'Normal'}
               </span>
+              <button onClick={() => handleRefreshTask(task.id)} style={{ marginLeft: 12, padding: '4px 14px', borderRadius: 6, border: 'none', background: '#1890ff', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'stretch', justifyContent: 'center', marginTop: 16 }}>
               {task.subtasks.map((group, groupIdx) => (
@@ -421,7 +486,7 @@ function App() {
                                   <span style={{ margin: '2px 0', fontWeight: 600, color: STATUS_COLORS[sa.status] }}>{STATUS_LABELS[sa.status]}</span>
                                   {sa.status !== 'done' && (
                                     <div style={{ display: 'flex', gap: 2 }}>
-                                      <button onClick={() => handleGenCmd(sub.title, task)} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#888', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>gen cmd</button>
+                                      <button onClick={() => handleGenCmd(sub.title, task, sa.title)} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#888', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>gen cmd</button>
                                       {['done', 'stuck'].filter(s => s !== sa.status).map(s => (
                                         <button
                                           key={s}
