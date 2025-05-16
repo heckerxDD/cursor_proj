@@ -1,10 +1,8 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
 
 const app = express();
 const PORT = 3001;
-const DROPDOWN_DATA_FILE = './dropdownData.json';
 
 app.use(cors());
 app.use(express.json());
@@ -57,9 +55,15 @@ function generateSubtasks(taskName, category) {
         { title: 'review uncertainty numbers', status: 'awaiting' },
       ]) },
     ];
+    const reportNavigationSubtasks = [
+      { title: 'timing package review', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'review content', status: 'awaiting' },
+      ]) },
+    ];
     return [
       { group: 'timing', subtasks: timingSubtasks },
       { group: 'collaterals', subtasks: collateralsSubtasks },
+      { group: 'report navigation', subtasks: reportNavigationSubtasks },
     ];
   }
   // Default subtasks
@@ -70,24 +74,6 @@ function generateSubtasks(taskName, category) {
       { title: `Review ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
     ]}
   ];
-}
-
-function loadDropdownData() {
-  try {
-    if (fs.existsSync(DROPDOWN_DATA_FILE)) {
-      return JSON.parse(fs.readFileSync(DROPDOWN_DATA_FILE, 'utf8'));
-    }
-  } catch (e) {}
-  return {
-    blocksByProject: {},
-    ipoByBlock: {},
-    layoutRevByBlock: {},
-    datecodeByBlock: {},
-  };
-}
-
-function saveDropdownData(data) {
-  fs.writeFileSync(DROPDOWN_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
 // Create a new task and auto-generate subtasks
@@ -138,7 +124,11 @@ app.patch('/api/tasks/:taskId/subtasks/:subtaskIndex/subactions/:subactionIndex'
   const { status } = req.body;
   const task = tasks.find(t => t.id === parseInt(taskId));
   if (!task) return res.status(404).json({ error: 'Task not found' });
-  const subtask = task.subtasks[subtaskIndex];
+  // Flatten all group.subtasks into a single array
+  const allSubtasks = Array.isArray(task.subtasks)
+    ? task.subtasks.flatMap(g => g.subtasks)
+    : [];
+  const subtask = allSubtasks[subtaskIndex];
   if (!subtask) return res.status(404).json({ error: 'Subtask not found' });
   if (!subtask.subactions || !subtask.subactions[subactionIndex]) {
     return res.status(404).json({ error: 'Subaction not found' });
@@ -157,16 +147,6 @@ app.delete('/api/tasks/:taskId', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Task not found' });
   tasks.splice(idx, 1);
   res.status(204).end();
-});
-
-app.get('/api/dropdown-data', (req, res) => {
-  res.json(loadDropdownData());
-});
-
-app.post('/api/dropdown-data', (req, res) => {
-  const data = req.body;
-  saveDropdownData(data);
-  res.json({ success: true });
 });
 
 app.listen(PORT, () => {

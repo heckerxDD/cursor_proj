@@ -50,41 +50,16 @@ function App() {
   const [blocksByProject, setBlocksByProject] = useState({});
   const [ipoByBlock, setIpoByBlock] = useState({});
   const [layoutRevByBlock, setLayoutRevByBlock] = useState({});
-  const [datecodeByBlock, setDatecodeByBlock] = useState({});
   const [blockInput, setBlockInput] = useState('');
   const [ipoInput, setIpoInput] = useState('');
   const [layoutRevInput, setLayoutRevInput] = useState('');
+  const [datecodeByBlock, setDatecodeByBlock] = useState({});
   const [datecodeInput, setDatecodeInput] = useState('');
 
   useEffect(() => {
     document.title = 'edm test tracker';
     fetchTasks();
   }, []);
-
-  useEffect(() => {
-    // Load from backend on mount
-    fetch('http://localhost:3001/api/dropdown-data')
-      .then(res => res.json())
-      .then(data => {
-        setBlocksByProject(data.blocksByProject || {});
-        setIpoByBlock(data.ipoByBlock || {});
-        setLayoutRevByBlock(data.layoutRevByBlock || {});
-        setDatecodeByBlock(data.datecodeByBlock || {});
-      });
-  }, []);
-
-  useEffect(() => {
-    fetch('http://localhost:3001/api/dropdown-data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        blocksByProject,
-        ipoByBlock,
-        layoutRevByBlock,
-        datecodeByBlock,
-      }),
-    });
-  }, [blocksByProject, ipoByBlock, layoutRevByBlock, datecodeByBlock]);
 
   function fetchTasks() {
     fetch('http://localhost:3001/api/tasks')
@@ -135,7 +110,7 @@ function App() {
   function handleGenCmd(subtaskTitle, task) {
     if (subtaskTitle === 'formal check') {
       const block = task.block || 'NV_NAFLL_digi_nafll_lvt';
-      const layoutRev = task.layoutRev ? `rev${task.layoutRev}` : '';
+      const layoutRev = task.layoutRev ? `${task.layoutRev}` : '';
       const dateStr = getDateString();
       const categoryStr = (task.category || '').replace(/\s+/g, '_');
       const commands = [
@@ -245,62 +220,19 @@ function App() {
     }
   }
 
-  function handleDeleteOption(type, value) {
-    if (type === 'block') {
-      setBlocksByProject(prev => {
-        const blocks = (prev[project] || []).filter(b => b !== value);
-        const newObj = { ...prev, [project]: blocks };
-        // Remove associated IPOs, layout revs, datecodes
-        setIpoByBlock(prevIpo => {
-          const newIpo = { ...prevIpo };
-          delete newIpo[value];
-          return newIpo;
-        });
-        setLayoutRevByBlock(prevRev => {
-          const newRev = { ...prevRev };
-          delete newRev[value];
-          return newRev;
-        });
-        setDatecodeByBlock(prevDate => {
-          const newDate = { ...prevDate };
-          delete newDate[value];
-          return newDate;
-        });
-        return newObj;
-      });
-      if (block === value) setBlock('');
-    } else if (type === 'ipo') {
-      setIpoByBlock(prev => {
-        const ipos = (prev[block] || []).filter(i => i !== value);
-        return { ...prev, [block]: ipos };
-      });
-      if (ipo === value) setIpo('');
-    } else if (type === 'layoutRev') {
-      setLayoutRevByBlock(prev => {
-        const revs = (prev[block] || []).filter(r => r !== value);
-        return { ...prev, [block]: revs };
-      });
-      if (layoutRev === value) setLayoutRev('');
-    } else if (type === 'datecode') {
-      setDatecodeByBlock(prev => {
-        const codes = (prev[block] || []).filter(c => c !== value);
-        return { ...prev, [block]: codes };
-      });
-      if (datecode === value) setDatecode('');
-    }
-  }
-
   // Reset block, ipo, layoutRev when project/block changes
   function handleProjectChange(e) {
     setProject(e.target.value);
     setBlock('');
     setIpo('');
     setLayoutRev('');
+    setDatecode('');
   }
   function handleBlockChange(e) {
     setBlock(e.target.value);
     setIpo('');
     setLayoutRev('');
+    setDatecode('');
   }
 
   const blockOptions = blocksByProject[project] || [];
@@ -330,17 +262,12 @@ function App() {
           ))}
         </select>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <select value={block} onChange={handleBlockChange} disabled={loading} style={{ minWidth: 120 }}>
-              <option value="">Select block</option>
-              {blockOptions.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-            {block && (
-              <button type="button" onClick={() => handleDeleteOption('block', block)} style={{ color: 'red', fontSize: 13, height: 28, marginLeft: 2 }}>Delete</button>
-            )}
-          </div>
+          <select value={block} onChange={handleBlockChange} disabled={loading} style={{ minWidth: 80 }}>
+            <option value="">Select block</option>
+            {blockOptions.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
           <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
             <input
               value={blockInput}
@@ -354,17 +281,12 @@ function App() {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <select value={ipo} onChange={e => setIpo(e.target.value)} disabled={loading || !block} style={{ minWidth: 120 }}>
-              <option value="">Select IPO</option>
-              {ipoOptions.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-            {ipo && (
-              <button type="button" onClick={() => handleDeleteOption('ipo', ipo)} style={{ color: 'red', fontSize: 13, height: 28, marginLeft: 2 }}>Delete</button>
-            )}
-          </div>
+          <select value={ipo} onChange={e => setIpo(e.target.value)} disabled={loading || !block} style={{ minWidth: 80 }}>
+            <option value="">Select IPO</option>
+            {ipoOptions.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
           <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
             <input
               value={ipoInput}
@@ -378,17 +300,12 @@ function App() {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <select value={layoutRev} onChange={e => setLayoutRev(e.target.value)} disabled={loading || !block} style={{ minWidth: 120 }}>
-              <option value="">Select layout rev</option>
-              {layoutRevOptions.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-            {layoutRev && (
-              <button type="button" onClick={() => handleDeleteOption('layoutRev', layoutRev)} style={{ color: 'red', fontSize: 13, height: 28, marginLeft: 2 }}>Delete</button>
-            )}
-          </div>
+          <select value={layoutRev} onChange={e => setLayoutRev(e.target.value)} disabled={loading || !block} style={{ minWidth: 80 }}>
+            <option value="">Select layout rev</option>
+            {layoutRevOptions.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
           <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
             <input
               value={layoutRevInput}
@@ -402,17 +319,12 @@ function App() {
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <select value={datecode} onChange={e => setDatecode(e.target.value)} disabled={loading || !block} style={{ minWidth: 120 }}>
-              <option value="">Select datecode</option>
-              {datecodeOptions.map(opt => (
-                <option key={opt} value={opt}>{opt}</option>
-              ))}
-            </select>
-            {datecode && (
-              <button type="button" onClick={() => handleDeleteOption('datecode', datecode)} style={{ color: 'red', fontSize: 13, height: 28, marginLeft: 2 }}>Delete</button>
-            )}
-          </div>
+          <select value={datecode} onChange={e => setDatecode(e.target.value)} disabled={loading || !block} style={{ minWidth: 80 }}>
+            <option value="">Select datecode</option>
+            {datecodeOptions.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
           <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
             <input
               value={datecodeInput}
@@ -476,6 +388,8 @@ function App() {
                   {group.subtasks.map((sub, idx) => {
                     const allSubactionsDone = sub.subactions && sub.subactions.length > 0 && sub.subactions.every(sa => sa.status === 'done');
                     const subtaskStatus = allSubactionsDone ? 'done' : sub.status;
+                    // Compute flat subtask index
+                    const flatSubtaskIndex = task.subtasks.slice(0, groupIdx).reduce((acc, g) => acc + g.subtasks.length, 0) + idx;
                     return (
                       <div key={idx} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 60, marginBottom: 2 }}>
                         <div
@@ -512,7 +426,7 @@ function App() {
                                         <button
                                           key={s}
                                           style={{ fontSize: 11, borderRadius: 3, padding: '1px 6px', border: 'none', background: STATUS_COLORS[s], color: '#fff', marginLeft: 2, cursor: 'pointer' }}
-                                          onClick={() => updateSubactionStatus(task.id, groupIdx, saIdx, s)}
+                                          onClick={() => updateSubactionStatus(task.id, flatSubtaskIndex, saIdx, s)}
                                         >
                                           {s === 'done' ? 'Done' : 'Stuck'}
                                         </button>
