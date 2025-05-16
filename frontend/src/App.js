@@ -62,29 +62,29 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Load from localStorage on mount
-    const blocks = localStorage.getItem('blocksByProject');
-    const ipos = localStorage.getItem('ipoByBlock');
-    const layoutRevs = localStorage.getItem('layoutRevByBlock');
-    const datecodes = localStorage.getItem('datecodeByBlock');
-    if (blocks) setBlocksByProject(JSON.parse(blocks));
-    if (ipos) setIpoByBlock(JSON.parse(ipos));
-    if (layoutRevs) setLayoutRevByBlock(JSON.parse(layoutRevs));
-    if (datecodes) setDatecodeByBlock(JSON.parse(datecodes));
+    // Load from backend on mount
+    fetch('http://localhost:3001/api/dropdown-data')
+      .then(res => res.json())
+      .then(data => {
+        setBlocksByProject(data.blocksByProject || {});
+        setIpoByBlock(data.ipoByBlock || {});
+        setLayoutRevByBlock(data.layoutRevByBlock || {});
+        setDatecodeByBlock(data.datecodeByBlock || {});
+      });
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('blocksByProject', JSON.stringify(blocksByProject));
-  }, [blocksByProject]);
-  useEffect(() => {
-    localStorage.setItem('ipoByBlock', JSON.stringify(ipoByBlock));
-  }, [ipoByBlock]);
-  useEffect(() => {
-    localStorage.setItem('layoutRevByBlock', JSON.stringify(layoutRevByBlock));
-  }, [layoutRevByBlock]);
-  useEffect(() => {
-    localStorage.setItem('datecodeByBlock', JSON.stringify(datecodeByBlock));
-  }, [datecodeByBlock]);
+    fetch('http://localhost:3001/api/dropdown-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        blocksByProject,
+        ipoByBlock,
+        layoutRevByBlock,
+        datecodeByBlock,
+      }),
+    });
+  }, [blocksByProject, ipoByBlock, layoutRevByBlock, datecodeByBlock]);
 
   function fetchTasks() {
     fetch('http://localhost:3001/api/tasks')

@@ -1,8 +1,10 @@
 const express = require('express');
 const cors = require('cors');
+const fs = require('fs');
 
 const app = express();
 const PORT = 3001;
+const DROPDOWN_DATA_FILE = './dropdownData.json';
 
 app.use(cors());
 app.use(express.json());
@@ -68,6 +70,24 @@ function generateSubtasks(taskName, category) {
       { title: `Review ${taskName}`, status: 'awaiting', subactions: withResultReviewed(generateSubactions()) },
     ]}
   ];
+}
+
+function loadDropdownData() {
+  try {
+    if (fs.existsSync(DROPDOWN_DATA_FILE)) {
+      return JSON.parse(fs.readFileSync(DROPDOWN_DATA_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return {
+    blocksByProject: {},
+    ipoByBlock: {},
+    layoutRevByBlock: {},
+    datecodeByBlock: {},
+  };
+}
+
+function saveDropdownData(data) {
+  fs.writeFileSync(DROPDOWN_DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
 // Create a new task and auto-generate subtasks
@@ -137,6 +157,16 @@ app.delete('/api/tasks/:taskId', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Task not found' });
   tasks.splice(idx, 1);
   res.status(204).end();
+});
+
+app.get('/api/dropdown-data', (req, res) => {
+  res.json(loadDropdownData());
+});
+
+app.post('/api/dropdown-data', (req, res) => {
+  const data = req.body;
+  saveDropdownData(data);
+  res.json({ success: true });
 });
 
 app.listen(PORT, () => {
