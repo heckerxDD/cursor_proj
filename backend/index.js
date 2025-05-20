@@ -56,7 +56,14 @@ function generateSubtasks(taskName, category) {
         { title: 'review gca session', status: 'awaiting' },
       ]) },
       { title: 'CA check', status: 'awaiting', subactions: withResultReviewed([
-        { title: 'review results', status: 'awaiting' },
+        // No subactions here, only the universal subaction will be appended
+      ]) },
+      { title: 'IR STA', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'launch timing run', status: 'awaiting' },
+      ]) },
+      { title: 'MCP glitch check', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'check endpoint report', status: 'awaiting' },
+        { title: 'launch mcp glitch run', status: 'awaiting' },
       ]) },
     ];
     const collateralsSubtasks = [
@@ -72,12 +79,11 @@ function generateSubtasks(taskName, category) {
       { title: 'uncertainty value check', status: 'awaiting', subactions: withResultReviewed([
         { title: 'review report dir', status: 'awaiting' },
         { title: 'run uncertainty sort', status: 'awaiting' },
-        { title: 'review uncertainty numbers', status: 'awaiting' },
       ]) },
     ];
     const reportNavigationSubtasks = [
       { title: 'timing package review', status: 'awaiting', subactions: withResultReviewed([
-        { title: 'review content', status: 'awaiting' },
+        // No subactions here, only the universal subaction will be appended
       ]) },
     ];
     return addUniversalSubactionToGroups([

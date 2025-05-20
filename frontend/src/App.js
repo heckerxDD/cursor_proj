@@ -128,6 +128,14 @@ function App() {
       setModalOpen(true);
       return;
     }
+    if (subtaskTitle === 'ptc run' && subactionTitle === 'review gca session') {
+      const block = task.block || '';
+      const ipo = task.ipo || '';
+      const cmd = `ls -rtld save_session/*${block}*${ipo}*gca* | grep -v cmnone | awk -F '/' '{print "restore_session -constraints -session_name", $2}'`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    }
     if (subtaskTitle === 'formal check') {
       const block = task.block || 'NV_NAFLL_digi_nafll_lvt';
       const layoutRev = task.layoutRev ? `${task.layoutRev}` : '';
@@ -191,6 +199,21 @@ function App() {
       const block = task.block || '';
       const datecode = task.datecode || '';
       const cmd = `grep 'ERROR' rep/clocks/${layoutRev}/${block}/${datecode}*/clockAuditor/*/*`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    } else if (subtaskTitle === 'uncertainty value check' && subactionTitle === 'run uncertainty sort') {
+      const project = task.project || '';
+      const block = task.block || '';
+      const ipo = task.ipo || '';
+      const cmd = `/home/scratch.${project}_main/${project}/${project}/timing/${project}/timing_scripts/workflow/utils/sort_uncertainty_reports.py ${project}/rep/special_checks/${block}/${ipo}/uncertainties/ ${block}`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    } else if (subtaskTitle === 'uncertainty value check' && subactionTitle === 'review report dir') {
+      const block = task.block || '';
+      const ipo = task.ipo || '';
+      const cmd = `lr rep/special_checks/${block}/${ipo}/uncertainties/`;
       setModalContent(cmd);
       setModalOpen(true);
       return;
