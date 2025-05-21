@@ -56,6 +56,7 @@ function App() {
   const [datecodeByBlock, setDatecodeByBlock] = useState({});
   const [datecodeInput, setDatecodeInput] = useState('');
   const [refreshPopupVisible, setRefreshPopupVisible] = useState(false);
+  const [expandedTasks, setExpandedTasks] = useState({});
 
   useEffect(() => {
     document.title = 'edm test tracker';
@@ -469,100 +470,116 @@ function App() {
         <span><span style={{ display: 'inline-block', width: 16, height: 16, background: STATUS_COLORS['stuck'], borderRadius: 4, marginRight: 4, verticalAlign: 'middle' }} /> Stuck</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-        {tasks.map((task, taskIdx) => (
-          <div
-            key={task.id}
-            style={{
-              background: getTaskColor(task.priority),
-              borderRadius: 16,
-              padding: 20,
-              minWidth: 800,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-              marginBottom: 24,
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <span style={{ fontWeight: 'bold', fontSize: 22, letterSpacing: 1 }}>{task.name}</span>
-              <span style={{ fontSize: 16, fontWeight: 500, background: '#fff', borderRadius: 8, padding: '4px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginLeft: 8 }}>
-                Category: {task.category || '-'}
-              </span>
-              <span style={{ fontSize: 16, fontWeight: 500, background: '#fff', borderRadius: 8, padding: '4px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginLeft: 8 }}>
-                Priority: {task.priority || 'Normal'}
-              </span>
-              <button onClick={() => handleRefreshTask(task.id)} style={{ marginLeft: 12, padding: '4px 14px', borderRadius: 6, border: 'none', background: '#1890ff', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'stretch', justifyContent: 'center', marginTop: 16 }}>
-              {task.subtasks.map((group, groupIdx) => (
-                <div key={groupIdx} style={{ marginBottom: 12 }}>
-                  <div style={{ fontWeight: 700, fontSize: 18, color: '#333', marginBottom: 6, textTransform: 'capitalize' }}>{group.group}</div>
-                  {group.subtasks.map((sub, idx) => {
-                    const allSubactionsDone = sub.subactions && sub.subactions.length > 0 && sub.subactions.every(sa => sa.status === 'done');
-                    const subtaskStatus = allSubactionsDone ? 'done' : sub.status;
-                    // Compute flat subtask index
-                    const flatSubtaskIndex = task.subtasks.slice(0, groupIdx).reduce((acc, g) => acc + g.subtasks.length, 0) + idx;
-                    return (
-                      <div key={idx} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 60, marginBottom: 2 }}>
-                        <div
-                          style={{
-                            background: STATUS_COLORS[subtaskStatus],
-                            color: subtaskStatus === 'awaiting' ? '#fff' : '#222',
-                            borderRadius: 8,
-                            padding: '12px 18px',
-                            fontWeight: 600,
-                            fontSize: 16,
-                            boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
-                            border: subtaskStatus === 'stuck' ? '2px solid #a020f0' : undefined,
-                            minWidth: 220,
-                            maxWidth: 220,
-                            textAlign: 'center',
-                            position: 'relative',
-                            marginRight: 16,
-                            flexShrink: 0,
-                          }}
-                        >
-                          {sub.title}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          {sub.subactions && sub.subactions.length > 0 && (
-                            <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
-                              {sub.subactions.map((sa, saIdx) => (
-                                <div key={saIdx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: 12, background: '#f8f8f8', borderRadius: 4, margin: '2px 0', padding: '2px 6px', color: sa.status === 'done' ? STATUS_COLORS['done'] : sa.status === 'stuck' ? STATUS_COLORS['stuck'] : '#222', minWidth: 120 }}>
-                                  <span style={{ fontWeight: 500 }}>{sa.title}</span>
-                                  <span style={{ margin: '2px 0', fontWeight: 600, color: STATUS_COLORS[sa.status] }}>{STATUS_LABELS[sa.status]}</span>
-                                  {sa.status !== 'done' && (
-                                    <div style={{ display: 'flex', gap: 2 }}>
-                                      <button onClick={() => handleGenCmd(sub.title, task, sa.title)} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#888', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>gen cmd</button>
-                                      {['done', 'stuck'].filter(s => s !== sa.status).map(s => (
-                                        <button
-                                          key={s}
-                                          style={{ fontSize: 11, borderRadius: 3, padding: '1px 6px', border: 'none', background: STATUS_COLORS[s], color: '#fff', marginLeft: 2, cursor: 'pointer' }}
-                                          onClick={() => updateSubactionStatus(task.id, flatSubtaskIndex, saIdx, s)}
-                                        >
-                                          {s === 'done' ? 'Done' : 'Stuck'}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+        {tasks.map((task, taskIdx) => {
+          const compositeKeyParts = [task.name, task.project, task.block, task.ipo, task.layoutRev, task.datecode].map(x => String(x || ''));
+          let compositeKey = compositeKeyParts.join('__');
+          if (!compositeKey.replace(/_/g, '')) compositeKey = String(task.id);
+          const isExpanded = !!expandedTasks[compositeKey];
+          return (
+            <div
+              key={compositeKey}
+              style={{
+                background: getTaskColor(task.priority),
+                borderRadius: 16,
+                padding: 20,
+                minWidth: 800,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                marginBottom: 24,
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <span style={{ fontWeight: 'bold', fontSize: 22, letterSpacing: 1 }}>{task.name}</span>
+                <span style={{ fontSize: 16, fontWeight: 500, background: '#fff', borderRadius: 8, padding: '4px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginLeft: 8 }}>
+                  Category: {task.category || '-'}
+                </span>
+                <span style={{ fontSize: 16, fontWeight: 500, background: '#fff', borderRadius: 8, padding: '4px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginLeft: 8 }}>
+                  Priority: {task.priority || 'Normal'}
+                </span>
+                <button onClick={() => handleRefreshTask(task.id)} style={{ marginLeft: 12, padding: '4px 14px', borderRadius: 6, border: 'none', background: '#1890ff', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Refresh</button>
+                <button
+                  onClick={() => setExpandedTasks(prev => ({ ...prev, [compositeKey]: !isExpanded }))}
+                  style={{ marginLeft: 12, padding: '4px 14px', borderRadius: 6, border: 'none', background: isExpanded ? '#bfbfbf' : '#1890ff', color: '#fff', fontWeight: 600, cursor: 'pointer' }}
+                >
+                  {isExpanded ? 'Hide' : 'Show'}
+                </button>
+              </div>
+              {isExpanded && (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'stretch', justifyContent: 'center', marginTop: 16 }}>
+                    {task.subtasks.map((group, groupIdx) => (
+                      <div key={groupIdx} style={{ marginBottom: 12 }}>
+                        <div style={{ fontWeight: 700, fontSize: 18, color: '#333', marginBottom: 6, textTransform: 'capitalize' }}>{group.group}</div>
+                        {group.subtasks.map((sub, idx) => {
+                          const allSubactionsDone = sub.subactions && sub.subactions.length > 0 && sub.subactions.every(sa => sa.status === 'done');
+                          const subtaskStatus = allSubactionsDone ? 'done' : sub.status;
+                          // Compute flat subtask index
+                          const flatSubtaskIndex = task.subtasks.slice(0, groupIdx).reduce((acc, g) => acc + g.subtasks.length, 0) + idx;
+                          return (
+                            <div key={idx} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 60, marginBottom: 2 }}>
+                              <div
+                                style={{
+                                  background: STATUS_COLORS[subtaskStatus],
+                                  color: subtaskStatus === 'awaiting' ? '#fff' : '#222',
+                                  borderRadius: 8,
+                                  padding: '12px 18px',
+                                  fontWeight: 600,
+                                  fontSize: 16,
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.10)',
+                                  border: subtaskStatus === 'stuck' ? '2px solid #a020f0' : undefined,
+                                  minWidth: 220,
+                                  maxWidth: 220,
+                                  textAlign: 'center',
+                                  position: 'relative',
+                                  marginRight: 16,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {sub.title}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                {sub.subactions && sub.subactions.length > 0 && (
+                                  <div style={{ display: 'flex', flexDirection: 'row', gap: 8 }}>
+                                    {sub.subactions.map((sa, saIdx) => (
+                                      <div key={saIdx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: 12, background: '#f8f8f8', borderRadius: 4, margin: '2px 0', padding: '2px 6px', color: sa.status === 'done' ? STATUS_COLORS['done'] : sa.status === 'stuck' ? STATUS_COLORS['stuck'] : '#222', minWidth: 120 }}>
+                                        <span style={{ fontWeight: 500 }}>{sa.title}</span>
+                                        <span style={{ margin: '2px 0', fontWeight: 600, color: STATUS_COLORS[sa.status] }}>{STATUS_LABELS[sa.status]}</span>
+                                        {sa.status !== 'done' && (
+                                          <div style={{ display: 'flex', gap: 2 }}>
+                                            <button onClick={() => handleGenCmd(sub.title, task, sa.title)} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#888', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>gen cmd</button>
+                                            {['done', 'stuck'].filter(s => s !== sa.status).map(s => (
+                                              <button
+                                                key={s}
+                                                style={{ fontSize: 11, borderRadius: 3, padding: '1px 6px', border: 'none', background: STATUS_COLORS[s], color: '#fff', marginLeft: 2, cursor: 'pointer' }}
+                                                onClick={() => updateSubactionStatus(task.id, flatSubtaskIndex, saIdx, s)}
+                                              >
+                                                {s === 'done' ? 'Done' : 'Stuck'}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          )}
-                        </div>
+                          );
+                        })}
                       </div>
-                    );
-                  })}
-                </div>
-              ))}
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                    <button onClick={() => removeTask(task.id)} style={{ background: '#ff4d4f', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontWeight: 600, cursor: 'pointer' }}>
+                      Confirm Complete
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-              <button onClick={() => removeTask(task.id)} style={{ background: '#ff4d4f', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 16px', fontWeight: 600, cursor: 'pointer' }}>
-                Confirm Complete
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
