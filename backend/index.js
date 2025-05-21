@@ -80,6 +80,10 @@ function generateSubtasks(taskName, category) {
         { title: 'review report dir', status: 'awaiting' },
         { title: 'run uncertainty sort', status: 'awaiting' },
       ]) },
+      { title: 'gen signoff page', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'run script', status: 'awaiting' },
+        { title: 'finess details', status: 'awaiting' },
+      ]) },
     ];
     const reportNavigationSubtasks = [
       { title: 'timing package review', status: 'awaiting', subactions: withResultReviewed([

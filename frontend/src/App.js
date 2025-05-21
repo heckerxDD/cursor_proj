@@ -137,7 +137,7 @@ function App() {
       return;
     }
     if (subtaskTitle === 'formal check') {
-      const block = task.block || 'NV_NAFLL_digi_nafll_lvt';
+      const block = task.block || 'NV_NAFLL_digi_nafll';
       const layoutRev = task.layoutRev ? `${task.layoutRev}` : '';
       const dateStr = getDateString();
       const categoryStr = (task.category || '').replace(/\s+/g, '_');
@@ -214,6 +214,30 @@ function App() {
       const block = task.block || '';
       const ipo = task.ipo || '';
       const cmd = `lr rep/special_checks/${block}/${ipo}/uncertainties/`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    } else if (subtaskTitle === 'gen signoff page' && subactionTitle === 'run script') {
+      const project = task.project || 'edm3tp';
+      const block = task.block || 'NV_NAFLL_digi_nafll';
+      const layoutRev = task.layoutRev ? `-R ${task.layoutRev}` : '';
+      const ipo = task.ipo ? `-ipo ${task.ipo}` : '';
+      const cmd = `/home/scratch.${project}_main/${project}/${project}/timing/${project}/timing_scripts/workflow/utils/gen_edm_signoff_page_xinyu_1.py -B ${block} ${layoutRev} ${ipo} -P ${project} -Y /home/scratch.${project}_main/${project}/${project}/timing/${project}/project_setup.`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    } else if (subtaskTitle === 'MCP glitch check' && subactionTitle === 'launch mcp glitch run') {
+      const project = task.project || 'edm3tp';
+      const block = task.block || 'NV_NAFLL_digi_nafll';
+      const ipo = task.ipo || '510107';
+      const layoutRev = task.layoutRev || 'revP5.0';
+      const cmd = `load_medic ${project}/cdc/mtbf_glitch.all.medic -block ${block} -ipo ${ipo} -type anno -rev ${layoutRev}`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    } else if (subtaskTitle === 'MCP glitch check' && subactionTitle === 'check endpoint report') {
+      const block = task.block || 'NV_NAFLL_digi_nafll';
+      const cmd = `lr rep/cdc/mcp_endpoints/${block}/`;
       setModalContent(cmd);
       setModalOpen(true);
       return;
