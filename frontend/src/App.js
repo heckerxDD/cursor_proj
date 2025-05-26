@@ -178,6 +178,7 @@ function App() {
         `load_medic ${base} ${rev} ${block} -check UNCHAR`,
         `load_medic ${base} ${rev} ${block} -check PCS`,
         `load_medic ${base} ${rev} ${block} -check LIBOLA`,
+        `get_status`,
       ].join('\n');
       setModalContent(cmds);
       setModalOpen(true);
@@ -475,6 +476,15 @@ function App() {
           let compositeKey = compositeKeyParts.join('__');
           if (!compositeKey.replace(/_/g, '')) compositeKey = String(task.id);
           const isExpanded = !!expandedTasks[compositeKey];
+
+          // Flatten all subtasks for correct flatSubtaskIndex mapping, with group and sub indices
+          const flatSubtasks = [];
+          task.subtasks.forEach((g, gIdx) => {
+            g.subtasks.forEach((s, sIdx) => {
+              flatSubtasks.push({ groupIdx: gIdx, subIdx: sIdx });
+            });
+          });
+
           return (
             <div
               key={compositeKey}
@@ -514,8 +524,8 @@ function App() {
                         {group.subtasks.map((sub, idx) => {
                           const allSubactionsDone = sub.subactions && sub.subactions.length > 0 && sub.subactions.every(sa => sa.status === 'done');
                           const subtaskStatus = allSubactionsDone ? 'done' : sub.status;
-                          // Compute flat subtask index
-                          const flatSubtaskIndex = task.subtasks.slice(0, groupIdx).reduce((acc, g) => acc + g.subtasks.length, 0) + idx;
+                          // Find the flat index for this subtask by groupIdx and idx
+                          const flatSubtaskIndex = flatSubtasks.findIndex(f => f.groupIdx === groupIdx && f.subIdx === idx);
                           return (
                             <div key={idx} style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', minHeight: 60, marginBottom: 2 }}>
                               <div
