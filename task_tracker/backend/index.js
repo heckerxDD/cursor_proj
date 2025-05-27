@@ -89,6 +89,9 @@ function generateSubtasks(taskName, category) {
       { title: 'timing package review', status: 'awaiting', subactions: withResultReviewed([
         // No subactions here, only the universal subaction will be appended
       ]) },
+      { title: 'special checks', status: 'awaiting', subactions: withResultReviewed([
+        { title: 'review results', status: 'awaiting' },
+      ]) },
     ];
     return addUniversalSubactionToGroups([
       { group: 'timing', subtasks: timingSubtasks },

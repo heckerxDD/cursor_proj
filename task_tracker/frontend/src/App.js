@@ -137,7 +137,7 @@ function App() {
       setModalOpen(true);
       return;
     }
-    if (subtaskTitle === 'formal check') {
+    if (subtaskTitle === 'formal check' && subactionTitle === 'launch run') {
       const block = task.block || 'NV_NAFLL_digi_nafll';
       const layoutRev = task.layoutRev ? `${task.layoutRev}` : '';
       const dateStr = getDateString();
@@ -240,6 +240,15 @@ function App() {
     } else if (subtaskTitle === 'MCP glitch check' && subactionTitle === 'check endpoint report') {
       const block = task.block || 'NV_NAFLL_digi_nafll';
       const cmd = `lr rep/cdc/mcp_endpoints/${block}/`;
+      setModalContent(cmd);
+      setModalOpen(true);
+      return;
+    } else if (subtaskTitle === 'special checks' && subactionTitle === 'review results') {
+      const project = task.project || 'edm3tp';
+      const block = task.block || 'NV_NAFLL_digi_nafll';
+      const ipo = task.ipo || '510107';
+      const datecode = task.datecode || '';
+      const cmd = `grep "" /home/scratch.${project}_main/${project}/${project}/timing/${project}/rep/special_checks/${block}/${ipo}/${block}.Summary.*${datecode}*.rpt | grep -v "std_min\\|zero" | sed -e 's?.*${block}/??' -e 's?/.*Summary.? ?' -e 's/\\..*:/ /' | sort -nk 7 | awk '{ if (!($5 in a)) a[$5] = $0; } END { for (i in a) print a[i]}' | sort -nk3 | sed 's/.*Check_Num/IPO Worst_Corner Check_Num/'\n\nset_min_pulse_width [expr [get_attr [get_clocks clkout_pre_skp_ng*] period]/2.0 ] [list [get_ports {CLKOUT CLKOUTINT CLKOUT_PRE_SKP}]]\nreport_min_pulse_width CLKOUT_PRE_SKP -path_type full_clock -nets -input_pins -transition_time\nreport_min_pulse_width CLKOUT -path_type full_clock -nets -input_pins -transition_time -clocks clk_pdiv__NAFLL\ngrep -A15 -i "check no.*12_mpw" /home/scratch.${project}_main/${project}/${project}/timing/${project}/rep/special_checks/${block}/${ipo}/${block}.custom_check.*${datecode}*.rpt | grep -i "vio" | awk -F '.' '{print $4, $5, $7$8}' | awk '{print $1, $2, $5, $6}'\ngrep -A15 -i "check no.*12_mpw" /home/scratch.${project}_main/${project}/${project}/timing/${project}/rep/special_checks/${block}/${ipo}/${block}.custom_check.*${datecode}*.rpt | grep -i -E "vio|positive|negative" | grep -v "DCD Check" | awk -F '.' '{print $4, $5, $7$8}' | awk '{print $1, $2, $5, $6}' | awk 'BEGIN {prev=""; sep=":"} /VIOLATED/ {if (prev != "") print prev; prev=$0; next} {print prev sep $0; prev=""} END {if (prev != "") print prev}' | awk -F ':' '{print $1, $2}' | awk '{print $1,$4,$7}' | awk '{print $2}' | awk '{gsub(/(/, ""); gsub(/)/, ""); if ($0 ~ /^-0/) sub(/0/, "0."); else sub(/^0/, ".0"); print $0}'\n\nlr rep/${block}..anno${ipo}*${datecode}*.Scan*.mask.rep`;
       setModalContent(cmd);
       setModalOpen(true);
       return;
@@ -567,6 +576,11 @@ function App() {
                                                 {s === 'done' ? 'Done' : 'Stuck'}
                                               </button>
                                             ))}
+                                          </div>
+                                        )}
+                                        {sa.status === 'done' && (
+                                          <div style={{ display: 'flex', gap: 2 }}>
+                                            <button onClick={() => handleGenCmd(sub.title, task, sa.title)} style={{ fontSize: 11, borderRadius: 3, padding: '1px 8px', border: 'none', background: '#52c41a', color: '#fff', marginLeft: 2, cursor: 'pointer' }}>Show Cmd</button>
                                           </div>
                                         )}
                                       </div>
